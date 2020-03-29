@@ -1,0 +1,16 @@
+apiVersion: skaffold/v2alpha4
+kind: Config
+metadata:
+  name: houston
+build:
+  tagPolicy:
+    sha256: {}
+  artifacts:
+  - image: houston
+deploy:
+  helm:
+    releases:
+    - name: houston
+      chartPath: helm/houston
+      values:
+        image.override: houston

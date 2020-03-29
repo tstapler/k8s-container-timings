@@ -1,0 +1,37 @@
+---
+# Scoped service account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ template "houston.fullname" . }}
+automountServiceAccountToken: true
+
+---
+# Access for the service account
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "houston.fullname" .}}
+rules:
+  - apiGroups:
+    - ""
+    resources:
+    - pods
+    verbs:
+    - get
+    - watch
+    - list
+
+---
+# Binding the role to the account in default
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "houston.fullname" .}}
+subjects:
+- kind: ServiceAccount
+  name: {{ template "houston.fullname" .}}
+roleRef:
+  kind: Role
+  name: {{ template "houston.fullname" .}}
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,104 @@
+---
+# Scoped service account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: foo-controller
+  namespace: default
+automountServiceAccountToken: true
+
+
+---
+# Access for the service account
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: default
+  name: foo-controller-role
+rules:
+  - apiGroups:
+    - clux.dev
+    resources:
+    - foos
+    verbs:
+    - get
+    - watch
+    - list
+
+---
+# Binding the role to the account in default
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: foo-controller-binding
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: foo-controller
+roleRef:
+  kind: Role
+  name: foo-controller-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Expose the http port of the service
+apiVersion: v1
+kind: Service
+metadata:
+  name: foo-controller
+  namespace: default
+  labels:
+    app: foo-controller
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: foo-controller
+
+---
+# Main deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foo-controller
+  namespace: default
+  labels:
+    app: foo-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: foo-controller
+  template:
+    metadata:
+      labels:
+        app: foo-controller
+    spec:
+      serviceAccountName: foo-controller
+      containers:
+      - name: foo-controller
+        image: "clux/controller:0.4.0"
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 100Mi
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        env:
+        - name: NAMESPACE
+          value: "default"
