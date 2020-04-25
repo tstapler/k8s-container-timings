@@ -11,7 +11,7 @@ use kube::{
 use k8s_openapi::{
     api::core::v1::{Pod},
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, OldDuration};
 
 
 #[derive(Serialize, Clone)]
@@ -46,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
     }
 }
 
-fn startup_time(pod: Pod) -> anyhow::Result<i64> {
+fn startup_time(pod: Pod) -> anyhow::Result<OldDuration> {
     if pod.status.is_none() {
         return Err(anyhow!("No pod status"));
     }
@@ -63,25 +63,34 @@ fn startup_time(pod: Pod) -> anyhow::Result<i64> {
         if duration.num_seconds() > 600 {
             return Err(anyhow!("Pod took too long to startup"));
         }
-        return Ok(duration.num_seconds());
+        return Ok(duration);
     }
     return Err(anyhow!("Not enough information to get startup time"));
 }
 
+extern crate metrics_runtime;
+use metrics_runtime::Receiver;
+
+Receiver::builder().build().expect("failed to create receiver").install();
+
+use metrics::timing;
 use std::collections::HashMap;
 // This function lets the app handle an event from kube
 fn handle_pod(ev: WatchEvent<Pod>) -> anyhow::Result<()> {
     match ev {
         WatchEvent::Added(pod) => {
             let name = Meta::name(&pod);
-            if let Ok(seconds)  = startup_time(pod) {
-                info!("{} it took {:?} seconds", name, seconds);
+            if let Ok(duration)  = startup_time(pod) {
+                info!("{} it took {:?} nanoseconds", name, duration);
+                timing!("startup.seconds",duration)
             }
         }
         WatchEvent::Modified(pod) => {
             let name = Meta::name(&pod);
-            if let Ok(seconds)  = startup_time(pod) {
-                info!("{} it took {:?} seconds", name, seconds);
+            let labels = pod.metadata.unwrap().labels.unwrap();
+            if let Ok(duration)  = startup_time(pod) {
+                info!("{} it took {:?} nanoseconds", name, duration);
+                timing!("startup.seconds",duration)
             }
         }
         _ => {}

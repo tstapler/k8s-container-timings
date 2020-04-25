@@ -22,3 +22,5 @@ log = "0.4.7"
 env_logger = "0.7.1"
 tokio = { version = "0.2.13", features = ["full"] }
 anyhow = "1.0.26"
+prometheus = "0.8"
+metrics = "0.12.1"
